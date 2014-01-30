@@ -1,7 +1,6 @@
 # Installation
 
-* Fetch the latest version from git directly and start using it (check the package.json for node package dependencies)
-* Install it with npm (`npm install webgme`), and you are ready to go
+See the [Installation](INSTALLATION.md) guide.
 
 # Program usage
 

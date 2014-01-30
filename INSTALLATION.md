@@ -1,12 +1,11 @@
-# Installation#
+# Installing WebGME #
+This document describes the steps for downloading and configuring **WebGME** and its dependencies.
 
-## OS-X ##
+## Dependencies ##
+**WebGME** runs on top of a number of open-source, cross-platform software packages. These must be installed before **WebGME** can be installed and run.
 
-### Dependencies ###
-
+### On Ubuntu ###
 #### Node.js ####
-**Ubuntu**: 
-
 Because the version you get by default from **apt-get** is too old for WebGME, you must take the steps below.
 
 ```
@@ -17,21 +16,23 @@ sudo apt-get update
 sudo apt-get install nodejs
 ```
 
-**OSX**:
+#### MongoDB ####
+Install **MongoDB** with **apt-get**:
 
-```
-brew install node
-```
+```sudo apt-get install mongodb```
+
+#### Git ####
+Install **git** with **apt-get**:
+
+```sudo apt-get install git```
+
+### On OS-X ###
+Installation of dependencies on OS-X is pretty easy if you have **homebrew** installed.
+
+#### Node.js ####
+```brew install node```
 
 #### MongoDB ####
-**Ubuntu**:
-
-```
-sudo apt-get install mongodb
-```
-
-**OSX**:
-
 1. Install:
 	
 	```
@@ -51,15 +52,11 @@ sudo apt-get install mongodb
 	```
 
 #### Git ####
+Visit the official [Git Download](http://git-scm.com/downloads) page.
 
-**Ubuntu**:
 
-```
-sudo apt-get install git
-```
 
-### Setup ###
-
+## Setting Up WebGME ##
 First, download WebGME:
 
 ```
@@ -106,7 +103,7 @@ define([], function () {
 });
 ```
 
-### Run ###
+## Running WebGME ##
 Start **webgme**:
 
 ```
