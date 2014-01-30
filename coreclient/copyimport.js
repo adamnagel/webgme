@@ -1,10 +1,6 @@
-/*
-this type of import is for merge purposes
-it tries to import not only the outgoing relations but the incoming ones as well
-it also tries to keep both the GUID and the relid's
-if it finds the same guid in the same place then it overwrites the node with the imported one!!!
-it not searches for GUID!!! so be careful when to use this method
-*/
+// This import will only enter the outgoing relations and the internal ones.
+// This import will try to import an array of objects as well as a single object.
+// Although this import also asume that there is no loop in the references so it can simply wait for
 
 define([
     'coreclient/meta'
@@ -13,7 +9,6 @@ define([
     ){
     var _core = null,
         _root = null,
-        _rootPath = "",
         _cache = {},
         _underImport = {},
         _internalRefHash = {},
@@ -126,15 +121,17 @@ define([
         }
     }
     function importPointer(node,jNode,pName,callback){
-        if(jNode.pointers[pName].to && jNode.pointers[pName].from){
-            var needed = jNode.pointers[pName].to.length + jNode.pointers[pName].from.length,
+        if(jNode.pointers[pName].to && jNode.pointers[pName].to.length > 0){
+            var needed = jNode.pointers[pName].to.length,
                 i,
                 error = null;
 
             for(i=0;i<jNode.pointers[pName].to.length;i++){
                 getReferenceNode(jNode.pointers[pName].to[i],function(err,target){
                     error = error || err;
-                    _core.setPointer(node,pName,target);
+                    if(target !== undefined){
+                        _core.setPointer(node,pName,target);
+                    }
 
                     if(--needed === 0){
                         callback(error);
@@ -142,31 +139,58 @@ define([
                 });
             }
 
-            for(i=0;i<jNode.pointers[pName].from.length;i++){
-                if(!isInternalReference(jNode.pointers[pName].from[i])){
-                    getReferenceNode(jNode.pointers[pName].from[i],function(err,source){
-                        error = error || err;
-                        if(source){
-                            _core.setPointer(source,pName,node);
-                        }
-
-                        if(--needed === 0){
-                            callback(error);
-                        }
-                    });
-                } else {
-                    if(--needed === 0){
-                        callback(error);
-                    }
-                }
-            }
-
         } else {
             callback(null);
         }
     }
     function importSet(node,jNode,sName, callback){
-        if(jNode.pointers[sName].to && jNode.pointers[sName].from){
+        if(jNode.pointers[sName].to && jNode.pointers[sName].to.length > 0){
+            var needed = 0,
+                importSetRegAndAtr = function(sOwner,sMember,atrAndReg){
+                    _core.addMember(sOwner,sName,sMember);
+                    var mPath = _core.getPath(sMember);
+                    atrAndReg.attributes = atrAndReg.attributes || {};
+                    for(var i in atrAndReg.attributes){
+                        _core.setMemberAttribute(sOwner,sName,mPath,i,atrAndReg.attributes[i]);
+                    }
+                    atrAndReg.registry = atrAndReg.registry || {};
+                    for(var i in atrAndReg.registry){
+                        _core.setMemberRegistry(sOwner,sName,mPath,i,atrAndReg.registry[i]);
+                    }
+                },
+                importSetReference = function(isTo,index,cb){
+                    var jObj = isTo === true ? jNode.pointers[sName].to[index] : jNode.pointers[sName].from[index];
+                    getReferenceNode(jObj,function(err,sNode){
+                        if(err){
+                            cb(err);
+                        } else {
+                            if(sNode){
+                                var sOwner = isTo === true ? node : sNode,
+                                    sMember = isTo === true ? sNode : node;
+                                importSetRegAndAtr(sOwner,sMember,jObj);
+                            }
+                            cb(null);
+                        }
+                    });
+                },
+                error = null;
+
+            _core.createSet(node,sName);
+            needed = jNode.pointers[sName].to.length;
+            for(var i=0;i<jNode.pointers[sName].to.length;i++){
+                importSetReference(true,i,function(err){
+                    error = error || err;
+                    if(--needed === 0){
+                        callback(error);
+                    }
+                });
+            }
+        } else {
+            callback(null); //TODO now we just simply try to ignore faulty data import
+        }
+    }
+    function _importSet(node,jNode,sName, callback){
+        if(jNode.pointers[sName].to){
             var needed = 0,
                 importSetRegAndAtr = function(sOwner,sMember,atrAndReg){
                     _core.addMember(sOwner,sName,sMember);
@@ -201,21 +225,10 @@ define([
                 needed += jNode.pointers[sName].to.length;
                 _core.createSet(node,sName);
             }
-            if(jNode.pointers[sName].from.length > 0){
-                needed += jNode.pointers[sName].from.length;
-            }
 
             if(needed > 0){
                 for(var i=0;i<jNode.pointers[sName].to.length;i++){
                     importSetReference(true,i,function(err){
-                        error = error || err;
-                        if(--needed === 0){
-                            callback(error);
-                        }
-                    });
-                }
-                for(var i=0;i<jNode.pointers[sName].from.length;i++){
-                    importSetReference(false,i,function(err){
                         error = error || err;
                         if(--needed === 0){
                             callback(error);
@@ -352,23 +365,6 @@ define([
             }
         });
     }
-    function clearOldNode(relid,guid,parentNode,callback){
-        var relids = _core.getChildrenRelids(parentNode);
-        if(relids.indexOf(relid) !== -1){
-            _core.loadChild(parentNode,relid,function(err,oldChild){
-                if(err){
-                    callback(err);
-                } else {
-                    if(_core.getGuid(oldChild) === guid){
-                        _core.deleteNode(oldChild);
-                    }
-                    callback(null);
-                }
-            });
-        } else {
-            callback(null);
-        }
-    }
     function importNode(jNode,parentNode,intPath,callback){
         //return callback('not implemented');
         //first we have to get the base of the node
@@ -377,26 +373,20 @@ define([
                 if(err){
                     callback(err);
                 } else {
-                    clearOldNode(jNode.RELID,jNode.GUID,parentNode,function(err){
+                    //now we are ready to create the node itself
+                    var node = _core.createNode({base:base,parent:parentNode});
+                    internalRefCreated(intPath,node);
+                    importAttributes(node,jNode);
+                    importRegistry(node,jNode);
+                    importChildren(node,jNode,intPath,function(err){
                         if(err){
                             callback(err);
                         } else {
-                            //now we are ready to create the node itself
-                            var node = _core.createNode({base:base,parent:parentNode,relid:jNode.RELID,guid:jNode.GUID});
-                            internalRefCreated(intPath,node);
-                            importAttributes(node,jNode);
-                            importRegistry(node,jNode);
-                            importChildren(node,jNode,intPath,function(err){
+                            importRelations(node,jNode,function(err){
                                 if(err){
                                     callback(err);
                                 } else {
-                                    importRelations(node,jNode,function(err){
-                                        if(err){
-                                            callback(err);
-                                        } else {
-                                            importMeta(node,jNode,callback);
-                                        }
-                                    });
+                                    importMeta(node,jNode,callback);
                                 }
                             });
                         }
@@ -407,22 +397,6 @@ define([
             callback('wrong import format: base info is wrong');
         }
     }
-    function _importing(core,parent,jNode,callback){
-        _core = core;
-        _cache = {};
-        _underImport = {};
-        _internalRefHash = {};
-        META.initialize(_core,_cache,function(){});
-
-        if(parent){
-            _cache[core.getPath(parent)] = parent;
-            _root = core.getRoot(parent);
-            importNode(jNode,parent,'#',callback);
-        } else {
-            importRoot(jNode,callback);
-        }
-    }
-
     function importing(core,parent,jNode,callback){
         _core = core;
         _cache = {};
@@ -459,7 +433,5 @@ define([
             }
         }
     }
-
     return importing;
 });
-

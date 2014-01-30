@@ -372,7 +372,7 @@ define(['logManager',
                     case DragHelper.DRAG_EFFECTS.DRAG_MOVE:
                         //check to see if dragParams.parentID and this.parentID are the same
                         //if so, it's not a real move, it is a reposition
-                        if ((dragParams && dragParams.parentID && dragParams.parentID === parentID) ||
+                        if ((dragParams && dragParams.parentID === parentID) ||
                             GMEConcepts.canCreateChildren(parentID, items)) {
                             dragAction = {'dragEffect': dragEffects[i]};
                             possibleDropActions.push(dragAction);
@@ -517,7 +517,7 @@ define(['logManager',
             case DragHelper.DRAG_EFFECTS.DRAG_MOVE:
                 //check to see if dragParams.parentID and this.parentID are the same
                 //if so, it's not a real move, it is a reposition
-                if (dragParams && dragParams.parentID && dragParams.parentID === parentID) {
+                if (dragParams && dragParams.parentID === parentID) {
                     //it is a reposition
                     this._repositionItems(items, dragParams.positions, position);
                 } else {
@@ -895,8 +895,15 @@ define(['logManager',
         this._client.startTransaction();
         while(i--) {
             gmeID = this._ComponentID2GmeID[selectedIds[i]];
-            regDegree = this._client.getNode(gmeID).getRegistry(nodePropertyNames.Registry.rotation);
-            this._client.setRegistry(gmeID, nodePropertyNames.Registry.rotation, ((regDegree || 0) + degree) % 360 );
+            regDegree = this._client.getNode(gmeID).getEditableRegistry(nodePropertyNames.Registry.rotation);
+
+            if (degree === DiagramDesignerWidgetConstants.ROTATION_RESET ) {
+                regDegree = 0;
+            } else {
+                regDegree = ((regDegree || 0) + degree) % 360;
+            }
+
+            this._client.setRegistry(gmeID, nodePropertyNames.Registry.rotation, regDegree);
         }
         this._client.completeTransaction();
     };
@@ -1058,11 +1065,14 @@ define(['logManager',
     };
 
     ModelEditorControlDiagramDesignerWidgetEventHandlers.prototype._exportItems = function (selectedIds) {
-        var i = selectedIds.length;
+        var i = selectedIds.length,
+            gmeIDs = [];
 
         while(i--) {
-            ExportManager.export(this._ComponentID2GmeID[selectedIds[i]]);
+            gmeIDs.push(this._ComponentID2GmeID[selectedIds[i]]);
         }
+
+        ExportManager.exportMultiple(gmeIDs);
     };
 
     return ModelEditorControlDiagramDesignerWidgetEventHandlers;

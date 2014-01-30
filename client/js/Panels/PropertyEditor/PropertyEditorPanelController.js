@@ -5,12 +5,14 @@ define(['logManager',
     'js/NodePropertyNames',
     'js/Decorators/DecoratorDB',
     'js/Constants',
-    'js/Panels/MetaEditor/MetaEditorConstants'], function (logManager,
+    'js/Panels/MetaEditor/MetaEditorConstants',
+    'js/Panels/ManualAspect/ManualAspectConstants'], function (logManager,
                                         util,
                                         nodePropertyNames,
                                         DecoratorDB,
                                         CONSTANTS,
-                                        MetaEditorConstants) {
+                                        MetaEditorConstants,
+                                        ManualAspectConstants) {
 
     var PropertyEditorController;
 
@@ -40,7 +42,8 @@ define(['logManager',
 
     PropertyEditorController.prototype._selectedObjectsChanged = function (idList) {
         var patterns = {},
-            i;
+            i,
+            self = this;
 
         this._idList = idList;
 
@@ -54,13 +57,11 @@ define(['logManager',
                 patterns[idList[i]] = { "children": 0 };
             }
 
-            this._territoryId = this._client.addUI(this, true);
+            this._territoryId = this._client.addUI(this, function (/*events*/) {
+                self._refreshPropertyList();
+            });
             this._client.updateTerritory(this._territoryId, patterns);
         }
-    };
-
-    PropertyEditorController.prototype.onOneEvent = function (/*events*/) {
-        this._refreshPropertyList();
     };
 
     PropertyEditorController.prototype._refreshPropertyList = function () {
@@ -294,12 +295,13 @@ define(['logManager',
                                 dstList[extKey].options = {"textColor": noCommonValueColor};
                             }
 
-                            if (extKey.indexOf(".x") > -1) {
+                            //possible inherited style --> italic
+                            /*if (extKey.indexOf(".x") > -1) {
                                 //let's say its inherited, make it italic
                                 dstList[extKey].options = dstList[extKey].options || {};
                                 dstList[extKey].options.textItalic = true;
                                 dstList[extKey].options.textBold = true;
-                            }
+                            }*/
 
                             //decorator value should be rendered as an option list
                             if (i === nodePropertyNames.Registry.decorator) {
@@ -341,13 +343,36 @@ define(['logManager',
             _addItemsToResultList(commonAttrs, "Attributes", propList, true);
 
             //modify registry
+            //filter out everything form the registry, except:
+            //#1: decorator
+            //#2: isPort
+            //#3: isAbstract
+            //#4: DisplayFormat
+            //#5: position
+            //#6: rotation
+            var displayReg = false;
+            var enabledRegistryKeys = [];
+            enabledRegistryKeys.push(nodePropertyNames.Registry.position);
+            enabledRegistryKeys.push(nodePropertyNames.Registry.rotation);
+            enabledRegistryKeys.push(nodePropertyNames.Registry.lineStyle);
+            enabledRegistryKeys.push(nodePropertyNames.Registry.decorator);
+            enabledRegistryKeys.push(nodePropertyNames.Registry.isPort);
+            enabledRegistryKeys.push(nodePropertyNames.Registry.isAbstract);
+            enabledRegistryKeys.push(nodePropertyNames.Registry.DisplayFormat);
             for (var it in commonRegs) {
                 if (commonRegs.hasOwnProperty(it)) {
                     if (commonRegs.hasOwnProperty(it)) {
-                        //#1: filter out rows of 'MetaEditor.MemberCoord' from Registry
-                        if (it.indexOf( nodePropertyNames.Registry.ProjectRegistry + '.') === 0) {   //#3: make ProjectRegistry entries readonly
-                            commonRegs[it].readOnly = true;
-                        } else if (it.indexOf(MetaEditorConstants.META_SHEET_REGISTRY_KEY) === 0 ) {
+                        displayReg = false;
+
+                        i = enabledRegistryKeys.length;
+                        while (i--) {
+                            if (it.indexOf(enabledRegistryKeys[i]) === 0) {
+                                displayReg = true;
+                                break;
+                            }
+                        }
+
+                        if (!displayReg) {
                             delete commonRegs[it];
                         }
                     }

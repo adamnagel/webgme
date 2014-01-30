@@ -2,16 +2,19 @@
 
 define(['logManager',
     'loaderProgressBar',
+    'js/Constants',
     'js/PanelBase/PanelBaseWithHeader',
     'js/Panels/SplitPanel/SplitPanel',
     'text!js/Visualizers.json',
     'css!/css/Panels/Visualizer/VisualizerPanel'], function (logManager,
                                     LoaderProgressBar,
+                                    CONSTANTS,
                                     PanelBaseWithHeader,
                                     SplitPanel,
                                     VisualizersJSON) {
 
-    var VisualizerPanel;
+    var VisualizerPanel,
+        DEFAULT_VISUALIZER = 'ModelEditor';
 
     VisualizerPanel = function (layoutManager, params) {
         var options = {};
@@ -88,7 +91,7 @@ define(['logManager',
         var self = this;
 
         this.addRange(JSON.parse(VisualizersJSON), function () {
-            self._setActiveVisualizer('ModelEditor', self._ul1);
+            self._setActiveVisualizer(DEFAULT_VISUALIZER, self._ul1);
         });
     };
 
@@ -117,7 +120,7 @@ define(['logManager',
                     this._splitPanel.setPanel(this._activePanel[panel], panel);
                 }
 
-                if (this._currentNodeID) {
+                if (this._currentNodeID || this._currentNodeID === CONSTANTS.PROJECT_ROOT_ID) {
                     if (this._activePanel[panel] && this._activePanel[panel].control && _.isFunction(this._activePanel[panel].control.selectedObjectChanged)) {
                         this._activePanel[panel].control.selectedObjectChanged(this._currentNodeID);
                     }

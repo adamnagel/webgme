@@ -2,19 +2,19 @@
 
 define(['js/PanelBase/PanelBaseWithHeader',
     'js/PanelManager/IActivePanel',
-    'js/Widgets/ModelEditor/ModelEditorWidget',
-    './ModelEditorControl'
+    'js/Widgets/ManualAspect/ManualAspectWidget',
+    './ManualAspectController'
 ], function (PanelBaseWithHeader,
              IActivePanel,
-             ModelEditorWidget,
-             ModelEditorControl) {
+             ManualAspectWidget,
+             ManualAspectController) {
 
-    var ModelEditorPanel;
+    var ManualAspectPanel;
 
-    ModelEditorPanel = function (layoutManager, params) {
+    ManualAspectPanel = function (layoutManager, params) {
         var options = {};
         //set properties from options
-        options[PanelBaseWithHeader.OPTIONS.LOGGER_INSTANCE_NAME] = "ModelEditorPanel";
+        options[PanelBaseWithHeader.OPTIONS.LOGGER_INSTANCE_NAME] = "ManualAspectPanel";
         options[PanelBaseWithHeader.OPTIONS.FLOATING_TITLE] = true;
 
         //call parent's constructor
@@ -25,17 +25,22 @@ define(['js/PanelBase/PanelBaseWithHeader',
         //initialize UI
         this._initialize();
 
-        this.logger.debug("ModelEditorPanel ctor finished");
+        this.logger.debug("ManualAspectPanel ctor finished");
     };
 
     //inherit from PanelBaseWithHeader
-    _.extend(ModelEditorPanel.prototype, PanelBaseWithHeader.prototype);
-    _.extend(ModelEditorPanel.prototype, IActivePanel.prototype);
+    _.extend(ManualAspectPanel.prototype, PanelBaseWithHeader.prototype);
+    _.extend(ManualAspectPanel.prototype, IActivePanel.prototype);
 
-    ModelEditorPanel.prototype._initialize = function () {
+    ManualAspectPanel.prototype._initialize = function () {
         var self = this;
 
-        this.widget = new ModelEditorWidget(this.$el, {'toolBar': this.toolBar});
+        //remove title container
+        /*if (this.$panelHeaderTitle) {
+            this.$panelHeaderTitle.remove();
+        }*/
+
+        this.widget = new ManualAspectWidget(this.$el, {'toolBar': this.toolBar});
 
         this.widget.setTitle = function (title) {
             self.setTitle(title);
@@ -46,7 +51,7 @@ define(['js/PanelBase/PanelBaseWithHeader',
             WebGMEGlobal.KeyboardManager.setListener(self.widget);
         };
 
-        this.control = new ModelEditorControl({"client": this._client,
+        this.control = new ManualAspectController({"client": this._client,
             "widget": this.widget});
 
         this.onActivate();
@@ -54,19 +59,20 @@ define(['js/PanelBase/PanelBaseWithHeader',
 
     /* OVERRIDE FROM WIDGET-WITH-HEADER */
     /* METHOD CALLED WHEN THE WIDGET'S READ-ONLY PROPERTY CHANGES */
-    ModelEditorPanel.prototype.onReadOnlyChanged = function (isReadOnly) {
+    ManualAspectPanel.prototype.onReadOnlyChanged = function (isReadOnly) {
         //apply parent's onReadOnlyChanged
         PanelBaseWithHeader.prototype.onReadOnlyChanged.call(this, isReadOnly);
 
         this.widget.setReadOnly(isReadOnly);
+        this.control.setReadOnly(isReadOnly);
     };
 
-    ModelEditorPanel.prototype.onResize = function (width, height) {
+    ManualAspectPanel.prototype.onResize = function (width, height) {
         this.logger.debug('onResize --> width: ' + width + ', height: ' + height);
         this.widget.onWidgetContainerResize(width, height);
     };
 
-    ModelEditorPanel.prototype.destroy = function () {
+    ManualAspectPanel.prototype.destroy = function () {
         this.control.destroy();
         this.widget.destroy();
 
@@ -76,7 +82,7 @@ define(['js/PanelBase/PanelBaseWithHeader',
     };
 
     /* override IActivePanel.prototype.onActivate */
-    ModelEditorPanel.prototype.onActivate = function () {
+    ManualAspectPanel.prototype.onActivate = function () {
         this.widget.onActivate();
         this.control.onActivate();
         WebGMEGlobal.KeyboardManager.setListener(this.widget);
@@ -84,16 +90,12 @@ define(['js/PanelBase/PanelBaseWithHeader',
     };
 
     /* override IActivePanel.prototype.onDeactivate */
-    ModelEditorPanel.prototype.onDeactivate = function () {
+    ManualAspectPanel.prototype.onDeactivate = function () {
         this.widget.onDeactivate();
         this.control.onDeactivate();
         WebGMEGlobal.KeyboardManager.setListener(undefined);
         WebGMEGlobal.Toolbar.refresh();
     };
 
-    ModelEditorPanel.prototype.getNodeID = function () {
-        return this.control.getNodeID();
-    };
-
-    return ModelEditorPanel;
+    return ManualAspectPanel;
 });

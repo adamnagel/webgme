@@ -8,14 +8,15 @@ define([
     URL
     ){
     var _refTypes = {
-        'url':'url',
-        'path':'path',
-        'guid':'guid'
+            'url':'url',
+            'path':'path',
+            'guid':'guid'
         },
-        cache = {},
+        _cache = {},
         _rootPath = "",
         _refType = 'url',
         _core = null,
+        _urlPrefix = "",
         META = new BaseMeta();
 
     var isRefObject = function(obj){
@@ -58,8 +59,6 @@ define([
     var refToRelRefObj = function(path,refObj){
         if(_cache[path]){
             refObj['$ref'] = _cache[path];
-        } else {
-            refObj = {'$ref': null};
         }
     };
 
@@ -124,9 +123,7 @@ define([
                 if(typeof dumpObject[i] === 'object'){
                     if(isRefObject(dumpObject[i])){
                         var path = getRefObjectPath(dumpObject[i]);
-                        if(isSubordinate(path)){
-                            refToRelRefObj(path,dumpObject[i]);
-                        }
+                        refToRelRefObj(path,dumpObject[i]);
                     } else {
                         checkForInternalReferences(dumpObject[i]);
                     }
@@ -160,6 +157,82 @@ define([
         });
     };
 
-    return dumpJsonNode;
+    var dumpNode = function(node,relPath,containerDump,index,callback){
+        //first we should check if the node is already dumped or not
+        var path = _core.getPath(node);
+        if(_cache[path]){
+            containerDump[index] = {
+                'GUID':_core.getGuid(node),
+                '$ref':relPath
+            };
+            callback(null);
+        } else {
+            //we try to dump this path for the first time
+            ToJson(_core,node,_urlPrefix,_refType,function(err,jNode){
+                if(err){
+                    callback(err);
+                } else {
+                    containerDump[index] = jNode;
+                    _cache[path] = relPath;
+
+                    //now we should recursively call ourselves if the node has children
+                    if(containerDump[index].children.length > 0){
+                        var needed = containerDump[index].children.length,
+                            error = null;
+                        _core.loadChildren(node,function(err,children){
+                            if(err){
+                                callback(err);
+                            } else {
+                                for(var i=0;i<children.length;i++){
+                                    dumpNode(children[i],relPath+'/children['+i+']',containerDump[index].children,i,function(err){
+                                        error = error || err;
+                                        if(--needed === 0){
+                                            callback(error);
+                                        }
+                                    });
+                                }
+                            }
+                        });
+                    } else {
+                        callback(null);
+                    }
+                }
+            });
+        }
+    };
+    var dumpMoreNodes = function(core,nodes,urlPrefix,refType,callback){
+        _cache = {};
+        _core = core;
+        _refType = refType;
+        _urlPrefix = urlPrefix;
+
+        var dumpNodes = [],
+            needed = nodes.length,
+            error = null,
+            postProcessing = function(err){
+                if(err){
+                    callback(err);
+                } else {
+                    checkForInternalReferences(dumpNodes);
+                    callback(null,dumpNodes);
+                }
+            };
+        if(needed > 0){
+            for(var i=0;i<nodes.length;i++){
+                dumpNodes.push({});
+                dumpNode(nodes[i],'#['+i+']',dumpNodes,i,function(err){
+                    error = error || err;
+                    if(--needed === 0){
+                        postProcessing(error);
+                    }
+                });
+            }
+        } else {
+            callback('no node to dump!!!',null);
+        }
+    };
+
+    return dumpMoreNodes;
 });
+
 

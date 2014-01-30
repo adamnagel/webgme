@@ -40,10 +40,12 @@ define(['logManager',
     };
 
     PartBrowserControl.prototype.selectedObjectChanged = function (nodeId) {
+        var self = this;
+
         this._logger.debug("SELECTEDOBJECT_CHANGED nodeId '" + nodeId + "'");
 
         //remove current territory patterns
-        if (this._containerNodeId) {
+        if (this._territoryId) {
             this._client.removeUI(this._territoryId);
             this._partBrowserView.clear();
         }
@@ -51,12 +53,14 @@ define(['logManager',
         this._containerNodeId = nodeId;
         this._validChildrenTypeIDs = [];
 
-        if (this._containerNodeId) {
+        if (this._containerNodeId || this._containerNodeId === CONSTANTS.PROJECT_ROOT_ID) {
             //put new node's info into territory rules
             this._selfPatterns = {};
             this._selfPatterns[nodeId] = { "children": 1 };
 
-            this._territoryId = this._client.addUI(this, true);
+            this._territoryId = this._client.addUI(this, function (events) {
+                self._eventCallback(events);
+            });
             //update the territory
             this._logger.debug('UPDATING TERRITORY: selectedObjectChanged' + JSON.stringify(this._selfPatterns));
             this._client.updateTerritory(this._territoryId, this._selfPatterns);
@@ -78,11 +82,11 @@ define(['logManager',
         return objDescriptor;
     };
 
-    PartBrowserControl.prototype.onOneEvent = function (events) {
+    PartBrowserControl.prototype._eventCallback = function (events) {
         var i = events ? events.length : 0,
             e;
 
-        this._logger.debug("onOneEvent '" + i + "' items, events: " + JSON.stringify(events));
+        this._logger.debug("_eventCallback '" + i + "' items, events: " + JSON.stringify(events));
 
         while (i--) {
             e = events[i];
@@ -101,7 +105,7 @@ define(['logManager',
 
         this._updateValidChildrenTypeDecorators();
 
-        this._logger.debug("onOneEvent '" + events.length + "' items - DONE");
+        this._logger.debug("_eventCallback '" + events.length + "' items - DONE");
     };
 
     // PUBLIC METHODS
@@ -328,10 +332,12 @@ define(['logManager',
 
         //filter out the types that doesn't need to be displayed for whatever reason:
         // - don't display validConnectionTypes
+        // - don't display abstract items
         i = this._validChildrenTypeIDs.length;
         while (i--) {
             id = this._validChildrenTypeIDs[i];
-            if (GMEConcepts.isConnectionType(id) === false) {
+            if (GMEConcepts.isConnectionType(id) === false &&
+                GMEConcepts.isAbstract(id) === false) {
                 childrenTypeToDisplay.push(id);
 
                 objDesc = this._getObjectDescriptor(id);
